@@ -36,9 +36,7 @@ jobs:
           workspaces: rust/noidmobile-pow
 
       - name: Install cargo-ndk
-        uses: nobodyxu/cargo-ndk@v3
-        with:
-          version: latest
+        run: cargo install cargo-ndk --locked
 
       - name: Build Rust crate for Android ABIs
         working-directory: rust/noidmobile-pow
