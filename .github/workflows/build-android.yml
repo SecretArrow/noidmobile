@@ -124,7 +124,7 @@ jobs:
           echo "Final APK: noidmobile-${VERSION}.apk ($(stat -c%s noidmobile-${VERSION}.apk) bytes)"
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: noidmobile-android-apk
           path: noidmobile-*.apk
@@ -132,7 +132,7 @@ jobs:
           retention-days: 30
 
       - name: Upload AAB artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: noidmobile-android-aab
           path: android/app/build/outputs/bundle/release/*.aab
