@@ -53,6 +53,7 @@ import org.secretarrow.noidmobile.data.RpcClient
 import org.secretarrow.noidmobile.data.Vault
 import org.secretarrow.noidmobile.pow.MinerEngine
 import org.secretarrow.noidmobile.ui.NoidMono
+import org.secretarrow.noidmobile.ui.component.StatCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

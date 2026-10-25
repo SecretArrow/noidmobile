@@ -26,10 +26,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import org.secretarrow.noidmobile.pow.LogLine
 import org.secretarrow.noidmobile.ui.NoidMono
 
@@ -45,6 +47,7 @@ import org.secretarrow.noidmobile.ui.NoidMono
 @Composable
 fun LogView(lines: List<LogLine>, modifier: Modifier = Modifier) {
     val state = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
 
     val atBottom by remember {
         derivedStateOf {
@@ -104,7 +107,9 @@ fun LogView(lines: List<LogLine>, modifier: Modifier = Modifier) {
             FloatingActionButton(
                 onClick = {
                     if (lines.isNotEmpty()) {
-                        state.animateScrollToItem(lines.lastIndex)
+                        coroutineScope.launch {
+                            state.animateScrollToItem(lines.lastIndex)
+                        }
                     }
                 },
                 modifier = Modifier
