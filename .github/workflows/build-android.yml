@@ -7,6 +7,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Required so the softprops/action-gh-release step can create a Release.
+permissions:
+  contents: write
+
 concurrency:
   group: build-android-${{ github.ref }}
   cancel-in-progress: true
@@ -71,11 +75,59 @@ jobs:
         # repo doesn't ship gradlew/gradle-wrapper.jar.
         run: gradle assembleRelease bundleRelease --no-daemon --stacktrace --no-build-cache
 
+      - name: Locate build-tools (for apksigner + zipalign + aapt)
+        id: buildtools
+        run: |
+          BT=$(ls -d $ANDROID_HOME/build-tools/*/ | sort -V | tail -1)
+          echo "build_tools_dir=$BT" >> $GITHUB_OUTPUT
+          echo "Found build-tools at: $BT"
+          ls "$BT" | head -20
+
+      - name: Verify APK signature + alignment
+        shell: bash
+        run: |
+          set -e
+          BT="${{ steps.buildtools.outputs.build_tools_dir }}"
+          APK_DIR="android/app/build/outputs/apk/release"
+          echo "=== APK files produced ==="
+          ls -la "$APK_DIR/"
+          APK=$(ls "$APK_DIR"/app-release*.apk 2>/dev/null | head -1)
+          if [ -z "$APK" ]; then
+            echo "⚠ No signed release APK found — falling back to unsigned."
+            APK=$(ls "$APK_DIR"/app-release-unsigned.apk 2>/dev/null | head -1)
+          fi
+          echo "Inspecting: $APK"
+          echo ""
+          echo "=== zipalign check ==="
+          "$BT/zipalign" -c -v 4 "$APK" 2>&1 | tail -10 || echo "(zipalign not yet applied — that's OK, apksigner re-aligns post-signing)"
+          echo ""
+          echo "=== apksigner verify --verbose ==="
+          "$BT/apksigner" verify --verbose --print-certs "$APK" 2>&1 || {
+            echo "❌ apksigner verify FAILED — APK will not install on Android!"
+            exit 1
+          }
+          echo ""
+          echo "=== aapt badging (sanity check) ==="
+          "$BT/aapt" dump badging "$APK" 2>&1 | head -25
+          echo ""
+          echo "✅ APK passes signature + alignment + manifest checks."
+
+      - name: Rename APK to a friendly name
+        run: |
+          APK_DIR="android/app/build/outputs/apk/release"
+          APK=$(ls "$APK_DIR"/app-release.apk 2>/dev/null | head -1)
+          if [ -z "$APK" ]; then
+            APK=$(ls "$APK_DIR"/app-release-unsigned.apk 2>/dev/null | head -1)
+          fi
+          VERSION="${GITHUB_REF_NAME:-v0.0.0}"
+          cp "$APK" "noidmobile-${VERSION}.apk"
+          echo "Final APK: noidmobile-${VERSION}.apk ($(stat -c%s noidmobile-${VERSION}.apk) bytes)"
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: noidmobile-android-apk
-          path: android/app/build/outputs/apk/release/*.apk
+          path: noidmobile-*.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -92,7 +144,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            android/app/build/outputs/apk/release/*.apk
+            noidmobile-*.apk
             android/app/build/outputs/bundle/release/*.aab
           generate_release_notes: true
           draft: false

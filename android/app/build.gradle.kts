@@ -11,10 +11,12 @@ android {
 
     defaultConfig {
         applicationId = "org.secretarrow.noidmobile"
-        minSdk = 26
+        // Lowered from 26 → 24 to support Android 7.0+ (Nougat).
+        // Compose's minSdk is 21, so 24 is well within bounds.
+        minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 3
+        versionName = "0.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -33,6 +35,37 @@ android {
         }
     }
 
+    // Define signing config at the TOP LEVEL — AGP requires this so that
+    // zipAlign + apksigner run in the correct order during assembleRelease.
+    // (Defining signingConfigs.create() inside the buildType block caused
+    //  AGP to skip the final apksigner pass, producing an APK that Android
+    //  sometimes rejected as "package corrupted".)
+    signingConfigs {
+        create("release") {
+            val ks = (System.getenv("NOID_KEYSTORE_FILE")
+                ?: providers.gradleProperty("NOID_KEYSTORE_FILE").orNull)
+                ?.takeIf { it.isNotBlank() }
+            val ksPass = (System.getenv("NOID_KEYSTORE_PASSWORD")
+                ?: providers.gradleProperty("NOID_KEYSTORE_PASSWORD").orNull)
+                ?.takeIf { it.isNotBlank() }
+            val alias = (System.getenv("NOID_KEY_ALIAS")
+                ?: providers.gradleProperty("NOID_KEY_ALIAS").orNull)
+                ?.takeIf { it.isNotBlank() }
+            val keyPass = (System.getenv("NOID_KEY_PASSWORD")
+                ?: providers.gradleProperty("NOID_KEY_PASSWORD").orNull)
+                ?.takeIf { it.isNotBlank() }
+            if (ks != null && ksPass != null && alias != null && keyPass != null) {
+                storeFile = file(ks)
+                storePassword = ksPass
+                keyAlias = alias
+                keyPassword = keyPass
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
+    }
+
     buildTypes {
         debug {
             isMinifyEnabled = false
@@ -41,27 +74,14 @@ android {
         }
         release {
             isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            // CI sets these env vars to sign the release build.
-            // If unset/empty, the build outputs an unsigned APK.
-            val ks = (System.getenv("NOID_KEYSTORE_FILE") ?: providers.gradleProperty("NOID_KEYSTORE_FILE").orNull)?.takeIf { it.isNotBlank() }
-            val ksPass = (System.getenv("NOID_KEYSTORE_PASSWORD") ?: providers.gradleProperty("NOID_KEYSTORE_PASSWORD").orNull)?.takeIf { it.isNotBlank() }
-            val alias = (System.getenv("NOID_KEY_ALIAS") ?: providers.gradleProperty("NOID_KEY_ALIAS").orNull)?.takeIf { it.isNotBlank() }
-            val keyPass = (System.getenv("NOID_KEY_PASSWORD") ?: providers.gradleProperty("NOID_KEY_PASSWORD").orNull)?.takeIf { it.isNotBlank() }
-            if (ks != null && ksPass != null && alias != null && keyPass != null) {
-                signingConfig = signingConfigs.create("release") {
-                    storeFile = file(ks)
-                    storePassword = ksPass
-                    keyAlias = alias
-                    keyPassword = keyPass
-                    enableV1Signing = true
-                    enableV2Signing = true
-                    enableV3Signing = true
-                }
-            }
+            // Reference the top-level signing config — this lets AGP run
+            // zipAlign + apksigner in the correct order.
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -98,7 +118,10 @@ android {
             "/META-INF/LICENSE*",
             "/META-INF/NOTICE*",
         )
-        jniLibs.useLegacyPackaging = true
+        // useLegacyPackaging = true extracts .so files at install time.
+        // Set to false to keep them inside the APK — smaller install
+        // footprint, and required for APK signing block to be valid.
+        jniLibs.useLegacyPackaging = false
     }
 
     testOptions {
