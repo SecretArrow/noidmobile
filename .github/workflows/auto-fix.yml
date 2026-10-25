@@ -30,7 +30,7 @@ jobs:
             exit 0
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: steps.check.outputs.permission == 'admin' || steps.check.outputs.permission == 'write'
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
