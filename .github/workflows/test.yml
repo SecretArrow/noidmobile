@@ -1,0 +1,75 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-test:
+    name: Web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Run web tests (if configured)
+        run: |
+          if npm run | grep -q '"test"'; then
+            npm test
+          elif grep -q '"vitest"' package.json; then
+            npx vitest run
+          else
+            echo "no web tests yet"
+          fi
+
+  rust-test:
+    name: Rust
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust/noidmobile-pow
+      - name: cargo test
+        run: cargo test --manifest-path rust/noidmobile-pow/Cargo.toml --all-targets
+
+  android-test:
+    name: Android unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'ndk;26.3.11579264 cmake;3.22.1'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit tests
+        working-directory: android
+        run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
+
+  stratum-test:
+    name: Stratum bridge
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: stratum/package.json
+      - working-directory: stratum
+        run: |
+          npm install
+          if npm run | grep -q '"test"'; then npm test; else echo "no stratum tests yet"; fi

@@ -1,0 +1,74 @@
+name: Auto-fix
+
+on:
+  workflow_run:
+    workflows: ['Lint', 'Test']
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  auto-fix:
+    name: Auto-fix lint errors
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    permissions:
+      contents: write
+      issues: write
+      actions: read
+    steps:
+      - name: Check actor write access
+        id: check
+        env:
+          ACTOR: ${{ github.event.workflow_run.actor.login || github.actor }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Skip if the triggering actor does not have write access to the repo.
+          PERM=$(gh api "repos/${{ github.repository }}/collaborators/$ACTOR/permission" --jq '.permission')
+          echo "permission=$PERM" >> $GITHUB_OUTPUT
+          if [[ "$PERM" != "admin" && "$PERM" != "write" ]]; then
+            echo "actor $ACTOR has $PERM — skipping auto-fix"
+            exit 0
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.permission == 'admin' || steps.check.outputs.permission == 'write'
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.permission == 'admin' || steps.check.outputs.permission == 'write'
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.check.outputs.permission == 'admin' || steps.check.outputs.permission == 'write'
+
+      - name: Web — eslint --fix
+        if: steps.check.outputs.permission == 'admin' || steps.check.outputs.permission == 'write'
+        run: |
+          npm ci || true
+          npx eslint --fix . || true
+
+      - name: Rust — cargo fix
+        if: steps.check.outputs.permission == 'admin' || steps.check.outputs.permission == 'write'
+        run: cargo fix --manifest-path rust/noidmobile-pow/Cargo.toml --allow-dirty || true
+
+      - name: Commit fixes
+        if: steps.check.outputs.permission == 'admin' || steps.check.outputs.permission == 'write'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'fix: auto-fix lint errors [skip ci]'
+          commit_user_name: 'noidmobile-ci'
+          commit_user_email: 'ci@noidmobile.local'
+
+      - name: Open issue on failure
+        if: failure()
+        uses: JasonEtco/create-an-issue@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          filename: .github/AUTO_FIX_FAILURE.md
+          update_existing: true
+          search_existing: open

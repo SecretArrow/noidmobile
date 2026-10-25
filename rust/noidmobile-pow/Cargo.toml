@@ -1,0 +1,36 @@
+[package]
+name = "noidmobile_pow"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Parano1d PoW (Poseidon2b) bindings for noidmobile web (WASM) and Android (NDK)"
+repository = "https://github.com/SecretArrow/noidmobile"
+readme = "README.md"
+
+[lib]
+name = "noidmobile_pow"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+# Opt in to calling `noid_poseidon2b::primitives::derive_address`. Off by
+# default because the upstream API surface is not pinned; the wallet code
+# paths use the node RPC instead.
+derive = []
+
+[dependencies]
+noid_poseidon2b = { git = "https://github.com/ignotusnemo/parano1d.git", branch = "main" }
+noid_core = { git = "https://github.com/ignotusnemo/parano1d.git", branch = "main" }
+bech32 = "0.11"
+hex = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+getrandom = { version = "0.2", features = ["js"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

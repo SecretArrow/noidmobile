@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Cyberpunk terminal palette. Pure black background, neon green
+         primary, neon magenta accent, amber warning. -->
+    <color name="noid_black">#FF000000</color>
+    <color name="noid_green">#FF00FF9C</color>
+    <color name="noid_magenta">#FFFF00FF</color>
+    <color name="noid_amber">#FFFFB000</color>
+    <color name="noid_white">#FFFFFFFF</color>
+    <color name="noid_gray">#FF8A8A8A</color>
+</resources>

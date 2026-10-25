@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NOID//MOBILE</string>
+    <string name="app_wordmark">NOID//MOBILE</string>
+    <string name="nav_dashboard">DASHBOARD</string>
+    <string name="nav_miner">MINER</string>
+    <string name="nav_wallet">WALLET</string>
+    <string name="nav_settings">SETTINGS</string>
+    <string name="miner_start">START MINING</string>
+    <string name="miner_stop">STOP MINING</string>
+    <string name="mode_solo">SOLO</string>
+    <string name="mode_pool">POOL</string>
+    <string name="wallet_new">NEW WALLET</string>
+    <string name="wallet_import">IMPORT</string>
+    <string name="wallet_backup_warning">Write down your 24-word mnemonic. It is the only way to recover your funds.</string>
+    <string name="settings_rpc_url">RPC URL</string>
+    <string name="settings_pool_url">POOL URL</string>
+    <string name="settings_mining_key">MINING KEY</string>
+    <string name="settings_threads">THREADS</string>
+    <string name="opencl_unavailable">OpenCL unavailable — using CPU Poseidon2b backend</string>
+</resources>

@@ -1,0 +1,18 @@
+# Gradle / Android
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+captures/
+.cxx/
+
+# JNI libs produced by cargo-ndk (CI rebuilds these on every build).
+app/src/main/jniLibs/*/libnoidmobile_pow.so
+
+# Keystores — never commit
+*.jks
+*.keystore
+
+# Logs
+*.log

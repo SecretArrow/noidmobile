@@ -1,0 +1,16 @@
+# Copy this file to `local.properties` and fill in your SDK + NDK paths.
+#
+# `local.properties` is git-ignored by Android Studio conventions — never
+# commit it. CI uses environment variables (ANDROID_HOME / ANDROID_NDK_HOME)
+# instead.
+
+# Absolute path to your Android SDK install.
+sdk.dir=/path/to/Android/Sdk
+
+# Optional: explicit NDK path. If unset, AGP will use the side-by-side NDK
+# managed by `ndkVersion` in app/build.gradle.kts.
+# ndk.dir=/path/to/Android/Sdk/ndk/26.3.11579264
+
+# Optional: CMake path. AGP bundles a default CMake; override only if you
+# need a specific version.
+# cmake.dir=/path/to/Android/Sdk/cmake/3.22.1

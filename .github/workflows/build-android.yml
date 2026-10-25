@@ -1,0 +1,97 @@
+name: Build Android
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: APK + AAB
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'ndk;26.3.11579264 cmake;3.22.1 platforms;android-34 build-tools;34.0.0'
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android,armv7-linux-androideabi
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust/noidmobile-pow
+
+      - name: Install cargo-ndk
+        uses: bnjbvr/cargo-ndk@v3
+        with:
+          version: latest
+
+      - name: Build Rust crate for Android ABIs
+        working-directory: rust/noidmobile-pow
+        run: |
+          cargo ndk -t arm64-v8a -t x86_64 -t armeabi-v7a \
+              -o ../../android/app/src/main/jniLibs build --release
+          ls -la ../../android/app/src/main/jniLibs/*/
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          build-root-directory: android
+
+      - name: Decode signing keystore (if provided)
+        id: keystore
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && secrets.ANDROID_KEYSTORE_BASE64 != ''
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > $RUNNER_TEMP/noidmobile.keystore
+          echo "keystore_file=$RUNNER_TEMP/noidmobile.keystore" >> $GITHUB_OUTPUT
+
+      - name: Assemble release APK + AAB
+        working-directory: android
+        env:
+          NOID_KEYSTORE_FILE: ${{ steps.keystore.outputs.keystore_file }}
+          NOID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          NOID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          NOID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease bundleRelease --no-daemon --stacktrace
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: noidmobile-android-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: noidmobile-android-aab
+          path: android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Create GitHub Release on tag push
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/bundle/release/*.aab
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref, '-') }}
