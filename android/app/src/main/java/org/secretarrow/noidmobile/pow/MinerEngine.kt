@@ -3,6 +3,7 @@
 package org.secretarrow.noidmobile.pow
 
 import android.content.Context
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -44,8 +45,13 @@ import java.time.Instant
  * In POOL mode it talks to the Stratum V2 bridge via WebSocket — the
  * bridge handles the Noise handshake with the pool, the engine only
  * does Poseidon2b hashing.
+ *
+ * CRITICAL: All exceptions are caught. The engine NEVER crashes the app —
+ * it logs the error and either retries or stops cleanly.
  */
 object MinerEngine {
+
+    private const val TAG = "MinerEngine"
 
     private val _state = MutableStateFlow(MinerState())
     val state: StateFlow<MinerState> = _state.asStateFlow()
@@ -58,19 +64,24 @@ object MinerEngine {
 
     /** Begin the mining loop. Returns when stopped. */
     suspend fun runLoop(context: Context, onProgress: (hashrateHps: Double, status: String) -> Unit = { _, _ -> }) {
-        val vault = Vault(context)
-        if (!controlMutex.tryLock()) return
-        try {
+        // Use withLock instead of tryLock so concurrent start requests wait
+        // rather than silently return. The mutex auto-releases on exception.
+        controlMutex.withLock {
             running = true
             _state.value = _state.value.copy(running = true)
-            when (vault.minerMode) {
-                MinerMode.SOLO -> runSolo(vault, onProgress)
-                MinerMode.POOL -> runPool(vault, onProgress)
+            try {
+                val vault = Vault(context)
+                when (vault.minerMode) {
+                    MinerMode.SOLO -> runSolo(vault, onProgress)
+                    MinerMode.POOL -> runPool(vault, onProgress)
+                }
+            } catch (t: Throwable) {
+                Log.e(TAG, "runLoop crashed", t)
+                log("error", "miner engine crashed: ${t.message}")
+            } finally {
+                running = false
+                _state.value = _state.value.copy(running = false, hashrateHps = 0.0)
             }
-        } finally {
-            running = false
-            _state.value = _state.value.copy(running = false, hashrateHps = 0.0)
-            controlMutex.unlock()
         }
     }
 
@@ -121,14 +132,20 @@ object MinerEngine {
             val t0 = System.nanoTime()
             val hashesTried = java.util.concurrent.atomic.AtomicLong(0)
 
-            val solution = searchNonceParallel(
-                hasher = hasher,
-                targetLeHex = template.difficulty_target_hex,
-                startNonce = rngStartNonce,
-                threads = threads,
-                deadlineMs = deadlineMs,
-                hashesTried = hashesTried,
-            )
+            val solution = try {
+                searchNonceParallel(
+                    hasher = hasher,
+                    targetLeHex = template.difficulty_target_hex,
+                    startNonce = rngStartNonce,
+                    threads = threads,
+                    deadlineMs = deadlineMs,
+                    hashesTried = hashesTried,
+                )
+            } catch (t: Throwable) {
+                Log.e(TAG, "searchNonceParallel crashed", t)
+                log("error", "nonce search crashed: ${t.message}")
+                delay(2000); continue
+            }
 
             val elapsed = (System.nanoTime() - t0).coerceAtLeast(1L)
             val hps = hashesTried.get().toDouble() / (elapsed / 1_000_000_000.0)
@@ -181,7 +198,12 @@ object MinerEngine {
         coroutineScope {
             val listener = launch {
                 bridge.messages.collect { msg ->
-                    handleBridgeMessage(msg, bridge, vault, onProgress, threads, rngStartNonce)
+                    try {
+                        handleBridgeMessage(msg, bridge, vault, onProgress, threads, rngStartNonce)
+                    } catch (t: Throwable) {
+                        Log.e(TAG, "bridge message handler crashed", t)
+                        log("error", "pool handler crashed: ${t.message}")
+                    }
                 }
             }
             try {
@@ -257,34 +279,53 @@ object MinerEngine {
         deadlineMs: Long,
         hashesTried: java.util.concurrent.atomic.AtomicLong,
     ): Long? = coroutineScope {
-        val perThread = CHUNK_SIZE / threads
+        val safeThreads = threads.coerceIn(1, 16)
+        val perThread = CHUNK_SIZE / safeThreads
         var chunkStart = startNonce
 
         while (running) {
             if (System.currentTimeMillis() >= deadlineMs) return@coroutineScope null
 
             val chunkEnd = chunkStart + CHUNK_SIZE
-            val deferreds = (0 until threads).map { tid ->
+            val deferreds = (0 until safeThreads).map { tid ->
                 async(Dispatchers.Default) {
-                    val ts = chunkStart + tid.toLong() * perThread
-                    val te = minOf(ts + perThread, chunkEnd)
-                    if (ts >= te) return@async null
+                    try {
+                        val ts = chunkStart + tid.toLong() * perThread
+                        val te = minOf(ts + perThread, chunkEnd)
+                        if (ts >= te) return@async null
 
-                    var nonce = ts
-                    while (nonce < te) {
-                        if (System.currentTimeMillis() >= deadlineMs) return@async null
-                        val n = minOf((te - nonce).toInt(), Poseidon2bHasher.BATCH_SIZE).coerceAtLeast(1)
-                        val digests = hasher.batchHashHex(nonce, n)
-                        hashesTried.addAndGet(n.toLong())
-                        for ((i, hash) in digests.withIndex()) {
-                            val bytes = hexToBytes(hash)
-                            if (NativePow.checkTargetNative(bytes, targetLeHex)) {
-                                return@async nonce + i
+                        var nonce = ts
+                        while (nonce < te && running) {
+                            if (System.currentTimeMillis() >= deadlineMs) return@async null
+                            val n = minOf((te - nonce).toInt(), Poseidon2bHasher.BATCH_SIZE).coerceAtLeast(1)
+                            val digests = hasher.batchHashHex(nonce, n)
+                            hashesTried.addAndGet(n.toLong())
+                            if (digests.isEmpty()) {
+                                // Native call failed for this batch — advance nonce
+                                // and continue rather than crashing.
+                                nonce += n.toLong()
+                                continue
                             }
+                            for ((i, hash) in digests.withIndex()) {
+                                if (hash.length < 64) continue
+                                val bytes = hexToBytes(hash)
+                                if (bytes.size != 32) continue
+                                try {
+                                    if (NativePow.checkTargetNative(bytes, targetLeHex)) {
+                                        return@async nonce + i
+                                    }
+                                } catch (t: Throwable) {
+                                    // checkTargetNative threw — skip this hash
+                                    Log.w(TAG, "checkTargetNative threw: ${t.message}")
+                                }
+                            }
+                            nonce += n.toLong()
                         }
-                        nonce += n.toLong()
+                        null
+                    } catch (t: Throwable) {
+                        Log.e(TAG, "worker thread crashed", t)
+                        null
                     }
-                    null
                 }
             }
 
@@ -300,17 +341,24 @@ object MinerEngine {
     // -------------------------------------------------------------------
 
     private fun backendLabel(): String =
-        if (NativePow.openclAvailableNative()) "OpenCL(GPU)+CPU" else "CPU(libnoidmobile_pow.so)"
+        try {
+            if (NativePow.openclAvailableNative()) "OpenCL(GPU)+CPU" else "CPU(libnoidmobile_pow.so)"
+        } catch (t: Throwable) {
+            "CPU(libnoidmobile_pow.so)"
+        }
 
     private fun log(level: String, message: String) {
         _log.tryEmit(LogLine(Instant.now().toString(), level, message))
     }
 
     private fun hexToBytes(hex: String): ByteArray {
+        if (hex.length % 2 != 0) return ByteArray(0)
         val out = ByteArray(hex.length / 2)
         for (i in out.indices) {
-            out[i] = ((Character.digit(hex[i * 2], 16) shl 4) or
-                      Character.digit(hex[i * 2 + 1], 16)).toByte()
+            val hi = Character.digit(hex[i * 2], 16)
+            val lo = Character.digit(hex[i * 2 + 1], 16)
+            if (hi < 0 || lo < 0) return ByteArray(0)
+            out[i] = ((hi shl 4) or lo).toByte()
         }
         return out
     }

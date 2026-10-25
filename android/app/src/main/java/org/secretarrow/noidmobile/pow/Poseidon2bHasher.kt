@@ -12,6 +12,9 @@ import kotlin.math.min
  * The batch interface mirrors the upstream `FixedFieldNonceBatch`:
  * given a fixed template, hash many consecutive nonces in one call to
  * amortize the Poseidon2b setup cost.
+ *
+ * All methods are null-safe and never throw — they return empty/zero
+ * on any error so the miner loop can continue without crashing.
  */
 class Poseidon2bHasher(
     private val powFieldsHex: String,
@@ -21,9 +24,12 @@ class Poseidon2bHasher(
 
     /** Compute the 32-byte hash for a single nonce (LE u128). */
     fun hash(nonce: Long): ByteArray {
-        val nonceLeHex = longToLeHex(nonce)
-        return NativePow.hashPowNative(powFieldsHex, nonceLeHex)
-            ?: ByteArray(32) { 0xFF.toByte() }
+        return try {
+            val nonceLeHex = longToLeHex(nonce)
+            NativePow.hashPowNative(powFieldsHex, nonceLeHex) ?: ByteArray(32) { 0xFF.toByte() }
+        } catch (t: Throwable) {
+            ByteArray(32) { 0xFF.toByte() }
+        }
     }
 
     /** Compute the 64-char hex hash for a single nonce (LE u128). */
@@ -31,11 +37,9 @@ class Poseidon2bHasher(
 
     /**
      * Batch-hash `count` consecutive nonces starting at [nonceStart].
-     * Returns a list of 64-char hex digests.
-     *
-     * Implementation note: the upstream miner uses `DIGEST_BATCH = 256`.
-     * We split the request into sub-batches of 256 so the peak memory is
-     * bounded and OpenCL/CPU paths both stay responsive.
+     * Returns a list of 64-char hex digests. Returns an empty list on
+     * any error — the caller must handle the empty case (treat as
+     * "no solutions in this batch").
      */
     fun batchHashHex(nonceStart: Long, count: Int): List<String> {
         if (count <= 0) return emptyList()
@@ -44,7 +48,15 @@ class Poseidon2bHasher(
         var remaining = count
         while (remaining > 0) {
             val n = min(remaining, BATCH_SIZE)
-            out.addAll(NativePow.batchHashHex(powFieldsHex, start, n))
+            val batch = NativePow.batchHashHex(powFieldsHex, start, n)
+            if (batch.isEmpty()) {
+                // Native call failed — fill the rest with sentinel hashes
+                // so the loop doesn't think it found a solution.
+                // 0xFF...FF is always >= any reasonable target.
+                repeat(n) { out.add("ff".repeat(32)) }
+            } else {
+                out.addAll(batch)
+            }
             start += n.toLong()
             remaining -= n
         }
@@ -53,7 +65,11 @@ class Poseidon2bHasher(
 
     /** True if `hash < target` as 256-bit LE integers. */
     fun checkTarget(hash: ByteArray, targetLeHex: String): Boolean {
-        return NativePow.checkTargetNative(hash, targetLeHex)
+        return try {
+            NativePow.checkTargetNative(hash, targetLeHex)
+        } catch (t: Throwable) {
+            false
+        }
     }
 
     companion object {

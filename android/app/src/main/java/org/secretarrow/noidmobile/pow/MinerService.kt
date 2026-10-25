@@ -8,10 +8,13 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import android.util.Log
 import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -23,10 +26,18 @@ import kotlinx.coroutines.launch
  * Foreground service that keeps the miner alive while the app is
  * backgrounded. Holds a partial wake lock so the CPU stays awake
  * between template polls.
+ *
+ * CRITICAL: Android 14 (API 34) requires startForeground() to be called
+ * with the foregroundServiceType parameter when the manifest declares
+ * android:foregroundServiceType="dataSync". Without it, the system
+ * throws ForegroundServiceTypeNotAllowed and the app crashes.
  */
 class MinerService : Service() {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val handler = CoroutineExceptionHandler { _, t ->
+        Log.e(TAG, "miner engine crashed", t)
+    }
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + handler)
     private var wakeLock: PowerManager.WakeLock? = null
     private var engineJob: Job? = null
 
@@ -40,13 +51,35 @@ class MinerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIF_ID, buildNotification("Mining…", "0 H/s"))
+        // CRITICAL: pass the foregroundServiceType on Android 14+ (API 34+).
+        // Without this, the system crashes the app with:
+        //   ForegroundServiceTypeNotAllowed: Starting FGS with type dataSync
+        //   targetSDK=34 is not allowed.
+        val notif = buildNotification("Mining…", "0 H/s")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(
+                NOTIF_ID,
+                notif,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+            )
+        } else {
+            startForeground(NOTIF_ID, notif)
+        }
+
         if (engineJob?.isActive != true) {
             engineJob = scope.launch {
-                MinerEngine.runLoop(applicationContext) { hashrate, status ->
-                    val notif = buildNotification(status, "%.1f H/s".format(hashrate))
-                    val nm = getSystemService(NotificationManager::class.java)
-                    nm.notify(NOTIF_ID, notif)
+                try {
+                    MinerEngine.runLoop(applicationContext) { hashrate, status ->
+                        try {
+                            val notif2 = buildNotification(status, "%.1f H/s".format(hashrate))
+                            val nm = getSystemService(NotificationManager::class.java)
+                            nm.notify(NOTIF_ID, notif2)
+                        } catch (t: Throwable) {
+                            Log.w(TAG, "notif update failed: ${t.message}")
+                        }
+                    }
+                } catch (t: Throwable) {
+                    Log.e(TAG, "MinerEngine.runLoop threw", t)
                 }
             }
         }
@@ -56,7 +89,7 @@ class MinerService : Service() {
     override fun onDestroy() {
         engineJob?.cancel()
         engineJob = null
-        wakeLock?.takeIf { it.isHeld }?.release()
+        try { wakeLock?.takeIf { it.isHeld }?.release() } catch (_: Throwable) {}
         scope.cancel()
         super.onDestroy()
     }
@@ -89,5 +122,6 @@ class MinerService : Service() {
     companion object {
         const val CHANNEL_ID = "noidmobile_miner"
         const val NOTIF_ID = 0x4E01D
+        private const val TAG = "MinerService"
     }
 }

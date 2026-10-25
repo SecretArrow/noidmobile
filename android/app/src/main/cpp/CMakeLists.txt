@@ -11,29 +11,42 @@ project(noidmobile LANGUAGES CXX)
 # Rust artifact separately.
 # ---------------------------------------------------------------------------
 
-# OpenCL: most Android devices ship libOpenCL.so under /vendor/lib(64).
-# Some Qualcomm devices expose libOpenCL-pixel.so or libGLES_mali.so.
-# Try a list of known names; if none link, define NO_OPENCL and the C++
-# falls back to the CPU batch hash from libnoidmobile_pow.so.
-set(OPENCL_CANDIDATES
-    OpenCL
-    libOpenCL.so
-    libOpenCL-pixel.so
-    libGLES_mali.so
-)
+# IMPORTANT: OpenCL GPU path is DISABLED by default to prevent crashes.
+# The OpenCL function signatures in opencl_miner.cpp are a minimal subset
+# and may not match every vendor's libOpenCL.so — calling them on a device
+# with an incompatible OpenCL could segfault the app.
+#
+# The CPU path through libnoidmobile_pow.so is always correct (it wraps the
+# upstream noid_poseidon2b Rust crate) and is what the upstream miner uses.
+#
+# To enable OpenCL for experimentation, pass -DNOID_ENABLE_OPENCL=ON to
+# CMake. Production builds should leave this OFF until a real GPU
+# Poseidon2b kernel is implemented and tested across Adreno + Mali.
+option(NOID_ENABLE_OPENCL "Enable OpenCL GPU path (experimental, may crash)" OFF)
 
-set(OPENCL_FOUND FALSE)
-foreach(candidate ${OPENCL_CANDIDATES})
-    find_library(OPENCL_LIB ${candidate})
-    if(OPENCL_LIB)
-        message(STATUS "noidmobile: OpenCL found as ${candidate} -> ${OPENCL_LIB}")
-        set(OPENCL_FOUND TRUE)
-        break()
+if(NOID_ENABLE_OPENCL)
+    set(OPENCL_CANDIDATES
+        OpenCL
+        libOpenCL.so
+        libOpenCL-pixel.so
+        libGLES_mali.so
+    )
+
+    set(OPENCL_FOUND FALSE)
+    foreach(candidate ${OPENCL_CANDIDATES})
+        find_library(OPENCL_LIB ${candidate})
+        if(OPENCL_LIB)
+            message(STATUS "noidmobile: OpenCL found as ${candidate} -> ${OPENCL_LIB}")
+            set(OPENCL_FOUND TRUE)
+            break()
+        endif()
+    endforeach()
+
+    if(NOT OPENCL_FOUND)
+        message(WARNING "noidmobile: OpenCL not found — falling back to CPU-only Poseidon2b")
     endif()
-endforeach()
-
-if(NOT OPENCL_FOUND)
-    message(WARNING "noidmobile: OpenCL not found — falling back to CPU-only Poseidon2b")
+else()
+    message(STATUS "noidmobile: OpenCL disabled by default (NOID_ENABLE_OPENCL=OFF) — CPU-only Poseidon2b")
 endif()
 
 add_library(noidmobile_pow SHARED IMPORTED)
@@ -50,7 +63,7 @@ target_include_directories(noid_jni PRIVATE
     ${CMAKE_SOURCE_DIR}
 )
 
-if(OPENCL_FOUND)
+if(NOID_ENABLE_OPENCL AND OPENCL_FOUND)
     target_compile_definitions(noid_jni PRIVATE NOID_HAS_OPENCL=1)
     target_link_libraries(noid_jni PRIVATE ${OPENCL_LIB})
 else()
