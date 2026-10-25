@@ -27,14 +27,14 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             NoidTheme {
-                NoidApp()
+                NoidAppRoot()
             }
         }
     }
 }
 
 @Composable
-private fun NoidApp() {
+private fun NoidAppRoot() {
     val nav = rememberNavController()
     Scaffold(
         modifier = Modifier.fillMaxSize(),

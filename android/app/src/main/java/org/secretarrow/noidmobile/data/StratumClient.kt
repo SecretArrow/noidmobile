@@ -91,7 +91,7 @@ class StratumClient(
     private fun connect() {
         val req = Request.Builder().url(bridgeUrl).build()
         socket = client.newWebSocket(req, object : WebSocketListener() {
-            override fun onOpen(webSocket: WebSocket) {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
                 _messages.tryEmit(BridgeMessage.Status(connected = true))
             }
 

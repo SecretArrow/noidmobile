@@ -137,9 +137,9 @@ fun WalletScreen() {
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = NoidGreen,
                 unfocusedTextColor = NoidGreen,
-                focusedBorderColor = NoidGreen,
-                unfocusedBorderColor = Color(0xFF444444),
-                focusedLabelTextColor = NoidGreen,
+                focusedIndicatorColor = NoidGreen,
+                unfocusedIndicatorColor = Color(0xFF444444),
+                focusedLabelColor = NoidGreen,
                 cursorColor = NoidGreen,
             ),
         )
@@ -210,9 +210,9 @@ fun WalletScreen() {
 private fun noidFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedTextColor = NoidGreen,
     unfocusedTextColor = NoidGreen,
-    focusedBorderColor = NoidGreen,
-    unfocusedBorderColor = Color(0xFF444444),
-    focusedLabelTextColor = NoidGreen,
+    focusedIndicatorColor = NoidGreen,
+    unfocusedIndicatorColor = Color(0xFF444444),
+    focusedLabelColor = NoidGreen,
     cursorColor = NoidGreen,
 )
 

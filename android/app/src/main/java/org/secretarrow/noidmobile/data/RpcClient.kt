@@ -168,5 +168,6 @@ class RpcClient(
 }
 
 class RpcException(message: String) : RuntimeException(message) {
-    val isStale: Boolean get() = message.contains("stale", ignoreCase = true)
+    val isStale: Boolean
+        get() = message?.contains("stale", ignoreCase = true) == true
 }

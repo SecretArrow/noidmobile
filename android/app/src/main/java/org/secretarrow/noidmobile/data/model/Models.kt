@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 SecretArrow.
-package org.secretarrow.noidmobile.data
+package org.secretarrow.noidmobile.data.model
 
 import kotlinx.serialization.Serializable
 

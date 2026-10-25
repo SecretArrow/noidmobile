@@ -19,7 +19,7 @@ class NoidApp : Application() {
         try {
             System.loadLibrary("noidmobile_pow")
             System.loadLibrary("noid_jni")
-            NativePow.logBackend()
+            NativePow.logBackendNative()
             Log.i("NoidApp", "native libraries loaded")
         } catch (t: Throwable) {
             // OpenCL missing is non-fatal; native lib failure is fatal.

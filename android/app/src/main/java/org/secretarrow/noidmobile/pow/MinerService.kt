@@ -44,7 +44,7 @@ class MinerService : Service() {
         if (engineJob?.isActive != true) {
             engineJob = scope.launch {
                 MinerEngine.runLoop(applicationContext) { hashrate, status ->
-                    val notif = buildNotification(status, hashrate)
+                    val notif = buildNotification(status, "%.1f H/s".format(hashrate))
                     val nm = getSystemService(NotificationManager::class.java)
                     nm.notify(NOTIF_ID, notif)
                 }
