@@ -49,13 +49,13 @@ android {
             // If unset, the build outputs an unsigned APK.
             val ks = (System.getenv("NOID_KEYSTORE_FILE") ?: providers.gradleProperty("NOID_KEYSTORE_FILE").orNull)
             val ksPass = (System.getenv("NOID_KEYSTORE_PASSWORD") ?: providers.gradleProperty("NOID_KEYSTORE_PASSWORD").orNull)
-            val keyAlias = (System.getenv("NOID_KEY_ALIAS") ?: providers.gradleProperty("NOID_KEY_ALIAS").orNull)
+            val alias = (System.getenv("NOID_KEY_ALIAS") ?: providers.gradleProperty("NOID_KEY_ALIAS").orNull)
             val keyPass = (System.getenv("NOID_KEY_PASSWORD") ?: providers.gradleProperty("NOID_KEY_PASSWORD").orNull)
-            if (ks != null && ksPass != null && keyAlias != null && keyPass != null) {
+            if (ks != null && ksPass != null && alias != null && keyPass != null) {
                 signingConfig = signingConfigs.create("release") {
                     storeFile = file(ks)
                     storePassword = ksPass
-                    keyAlias = keyAlias
+                    keyAlias = alias
                     keyPassword = keyPass
                     enableV1Signing = true
                     enableV2Signing = true
@@ -70,9 +70,12 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-        freeCompilerArgs += listOf("-Xjvm-default=all")
+    // Use compilerOptions instead of the deprecated kotlinOptions DSL.
+    // (AGP 8.7+ treats kotlinOptions deprecation as a script-compile error.)
+    @Suppress("UnstableApiUsage")
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        freeCompilerArgs.addAll("-Xjvm-default=all")
     }
 
     buildFeatures {
