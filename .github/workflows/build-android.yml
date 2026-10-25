@@ -58,7 +58,7 @@ jobs:
               -o ../../android/app/src/main/jniLibs build --release
           ls -la ../../android/app/src/main/jniLibs/*/
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Decode signing keystore (if provided)
         id: keystore
