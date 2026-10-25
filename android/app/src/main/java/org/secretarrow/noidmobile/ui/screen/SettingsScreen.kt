@@ -132,7 +132,7 @@ fun SettingsScreen() {
                                     try {
                                         val rpc = RpcClient(url = rpcUrl, miningKey = miningKey.ifBlank { null })
                                         val status = rpc.getNodeStatus()
-                                        "✓ Connected — synced=${status.synced} peers=${status.peer_count} backend=${status.cpu_backend}"
+                                        "✓ Connected — synced=${status.synced} peers=${status.peers} version=${status.version.take(20)}"
                                     } catch (e: Exception) {
                                         "✗ Failed: ${e.message?.take(100)}"
                                     }
