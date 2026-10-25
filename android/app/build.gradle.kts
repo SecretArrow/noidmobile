@@ -45,13 +45,12 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            // CI sets these gradle properties to sign the release build.
-            // If unset, the build outputs an unsigned APK that CI then
-            // signs with apksigner.
-            val ks = providers.gradleProperty("NOID_KEYSTORE_FILE").orNull
-            val ksPass = providers.gradleProperty("NOID_KEYSTORE_PASSWORD").orNull
-            val keyAlias = providers.gradleProperty("NOID_KEY_ALIAS").orNull
-            val keyPass = providers.gradleProperty("NOID_KEY_PASSWORD").orNull
+            // CI sets these env vars to sign the release build.
+            // If unset, the build outputs an unsigned APK.
+            val ks = (System.getenv("NOID_KEYSTORE_FILE") ?: providers.gradleProperty("NOID_KEYSTORE_FILE").orNull)
+            val ksPass = (System.getenv("NOID_KEYSTORE_PASSWORD") ?: providers.gradleProperty("NOID_KEYSTORE_PASSWORD").orNull)
+            val keyAlias = (System.getenv("NOID_KEY_ALIAS") ?: providers.gradleProperty("NOID_KEY_ALIAS").orNull)
+            val keyPass = (System.getenv("NOID_KEY_PASSWORD") ?: providers.gradleProperty("NOID_KEY_PASSWORD").orNull)
             if (ks != null && ksPass != null && keyAlias != null && keyPass != null) {
                 signingConfig = signingConfigs.create("release") {
                     storeFile = file(ks)

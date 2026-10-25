@@ -46,8 +46,6 @@ jobs:
           ls -la ../../android/app/src/main/jniLibs/*/
 
       - uses: gradle/actions/setup-gradle@v4
-        with:
-          build-root-directory: android
 
       - name: Decode signing keystore (if provided)
         id: keystore
@@ -69,7 +67,9 @@ jobs:
           NOID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           NOID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           NOID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew assembleRelease bundleRelease --no-daemon --stacktrace
+        # Use system gradle (set up by gradle/actions/setup-gradle) since the
+        # repo doesn't ship gradlew/gradle-wrapper.jar.
+        run: gradle assembleRelease bundleRelease --no-daemon --stacktrace --no-build-cache
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
