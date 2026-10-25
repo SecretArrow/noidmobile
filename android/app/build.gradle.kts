@@ -46,11 +46,11 @@ android {
                 "proguard-rules.pro",
             )
             // CI sets these env vars to sign the release build.
-            // If unset, the build outputs an unsigned APK.
-            val ks = (System.getenv("NOID_KEYSTORE_FILE") ?: providers.gradleProperty("NOID_KEYSTORE_FILE").orNull)
-            val ksPass = (System.getenv("NOID_KEYSTORE_PASSWORD") ?: providers.gradleProperty("NOID_KEYSTORE_PASSWORD").orNull)
-            val alias = (System.getenv("NOID_KEY_ALIAS") ?: providers.gradleProperty("NOID_KEY_ALIAS").orNull)
-            val keyPass = (System.getenv("NOID_KEY_PASSWORD") ?: providers.gradleProperty("NOID_KEY_PASSWORD").orNull)
+            // If unset/empty, the build outputs an unsigned APK.
+            val ks = (System.getenv("NOID_KEYSTORE_FILE") ?: providers.gradleProperty("NOID_KEYSTORE_FILE").orNull)?.takeIf { it.isNotBlank() }
+            val ksPass = (System.getenv("NOID_KEYSTORE_PASSWORD") ?: providers.gradleProperty("NOID_KEYSTORE_PASSWORD").orNull)?.takeIf { it.isNotBlank() }
+            val alias = (System.getenv("NOID_KEY_ALIAS") ?: providers.gradleProperty("NOID_KEY_ALIAS").orNull)?.takeIf { it.isNotBlank() }
+            val keyPass = (System.getenv("NOID_KEY_PASSWORD") ?: providers.gradleProperty("NOID_KEY_PASSWORD").orNull)?.takeIf { it.isNotBlank() }
             if (ks != null && ksPass != null && alias != null && keyPass != null) {
                 signingConfig = signingConfigs.create("release") {
                     storeFile = file(ks)
