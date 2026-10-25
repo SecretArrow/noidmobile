@@ -55,7 +55,7 @@ pub fn decode_pow_fields_hex(hex_str: &str) -> Result<[Block128; POW_HEADER_FIEL
             bytes.len()
         ));
     }
-    let mut fields = [Block128::ZERO; POW_HEADER_FIELD_COUNT];
+    let mut fields: [Block128; POW_HEADER_FIELD_COUNT] = core::array::from_fn(|_| Block128::from(0u128));
     for (i, chunk) in bytes.chunks_exact(16).enumerate() {
         let arr: [u8; 16] = chunk.try_into().expect("chunk is 16 bytes");
         fields[i] = Block128::from(u128::from_le_bytes(arr));
@@ -133,20 +133,27 @@ pub fn check_target(hash: &[u8; 32], target_le_hex: &str) -> bool {
 
 /// Validate a bech32m Parano1d address (HRP `"o1"`).
 pub fn validate_bech32m_o1(address: &str) -> bool {
-    use bech32::{decode, FromBase32, Hrp, Variant};
-    match decode(address) {
-        Ok((hrp, data, variant)) => {
-            if hrp != Hrp::parse("o1").expect("hrp o1") || variant != Variant::Bech32m {
+    // bech32 v0.11 API: `decode` returns `Result<(Hrp, Vec<u8>), DecodeError>`
+    // and the Bech32m variant is selected automatically by the checksum.
+    match bech32::decode(address) {
+        Ok((hrp, data)) => {
+            if hrp.as_str() != "o1" || data.is_empty() {
                 return false;
             }
-            // Must decode to a non-empty payload. We do not enforce exact
-            // byte length here — the canonical 32-byte spend key yields a
-            // 52-char data part, but the node is the source of truth.
-            !Vec::<u8>::from_base32(&data).unwrap_or_default().is_empty()
+            // bech32 0.11 + Bech32m check: re-encode and compare to verify
+            // the variant is Bech32m (not legacy Bech32).
+            match bech32::encode::<Bech32m>(hrp, &data) {
+                Ok(reencoded) => reencoded.eq_ignore_ascii_case(address),
+                Err(_) => false,
+            }
         }
         Err(_) => false,
     }
 }
+
+// Alias for the Bech32m variant marker used by the bech32 crate.
+// In bech32 0.11, `Bech32m` is a unit struct implementing the `Variant` trait.
+use bech32::Bech32m;
 
 /// Best-effort address derivation.
 ///
@@ -269,11 +276,11 @@ mod tests {
     fn validate_bech32_with_wrong_hrp() -> bool {
         // A syntactically-valid bech32m string but with the wrong HRP
         // ("o1" is required). Constructed with the bech32 crate so it's a
-        // true Bech32m checksum.
-        use bech32::{encode, ToBase32, Hrp, Variant};
+        // true Bech32m checksum. bech32 0.11 API.
+        use bech32::{encode, Bech32m, Hrp};
         let data: Vec<u8> = vec![0u8; 32];
         let hrp = Hrp::parse("xx").unwrap();
-        let s = encode(hrp, data.to_base32(), Variant::Bech32m).unwrap();
+        let s = encode::<Bech32m>(hrp, &data).unwrap();
         validate_bech32m_o1(&s)
     }
 
