@@ -70,13 +70,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    // Use compilerOptions instead of the deprecated kotlinOptions DSL.
-    // (AGP 8.7+ treats kotlinOptions deprecation as a script-compile error.)
-    @Suppress("UnstableApiUsage")
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-        freeCompilerArgs.addAll("-Xjvm-default=all")
-    }
+    // Note: kotlinOptions {} is treated as a hard error by AGP 8.7's
+    // Kotlin DSL script compiler (deprecation promoted to error). The
+    // JVM target is inherited from compileOptions above; Compose's
+    // freeCompilerArgs are configured by the kotlin-compose plugin
+    // automatically. No explicit kotlinOptions block needed.
 
     buildFeatures {
         compose = true
