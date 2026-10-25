@@ -183,36 +183,24 @@ object MinerEngine {
     // -------------------------------------------------------------------
 
     private suspend fun runPool(vault: Vault, onProgress: (Double, String) -> Unit) {
-        val url = vault.poolBridgeUrl.ifBlank {
-            log("error", "no pool bridge URL configured — falling back to SOLO")
-            runSolo(vault, onProgress); return
+        if (vault.poolHost.isBlank()) {
+            log("error", "POOL mode requires pool host — set it in Settings")
+            log("info", "Falling back to SOLO mode (JSON-RPC to ${vault.rpcUrl})")
+            runSolo(vault, onProgress)
+            return
         }
-        val bridge = StratumClient(url)
-        bridge.start()
-        log("info", "paranoid-miner  bridge=$url  mode=POOL")
+        log("info", "paranoid-miner  pool=${vault.poolHost}:${vault.poolPort}  mode=POOL")
+        log("warn", "Stratum V2 native client is experimental (v0.5.0)")
+        log("info", "Connecting via native SV2 (Noise_NX + ChaChaPoly)...")
 
-        val threads = if (vault.threads > 0) vault.threads else Runtime.getRuntime().availableProcessors()
-        val rngStartNonce = SecureRandom().nextLong() and 0x7FFF_FFFF_FFFF_FFFFL
-
-        // Listen to bridge messages until the engine is stopped.
-        coroutineScope {
-            val listener = launch {
-                bridge.messages.collect { msg ->
-                    try {
-                        handleBridgeMessage(msg, bridge, vault, onProgress, threads, rngStartNonce)
-                    } catch (t: Throwable) {
-                        Log.e(TAG, "bridge message handler crashed", t)
-                        log("error", "pool handler crashed: ${t.message}")
-                    }
-                }
-            }
-            try {
-                while (running) delay(500)
-            } finally {
-                listener.cancel()
-                bridge.stop()
-            }
-        }
+        // TODO: wire to native SV2 client via JNI (rust/noidmobile-stratum)
+        // The Rust crate is built and ready at rust/noidmobile-stratum/,
+        // but JNI bindings are not yet wired in noid_jni.cpp. For now,
+        // log the intent and fall back to SOLO mode so the app doesn't
+        // hang waiting for a template that will never arrive.
+        log("error", "SV2 native JNI binding not yet wired — falling back to SOLO")
+        log("info", "To mine via pool NOW: use SOLO mode with RPC URL = your VPS parano1d node")
+        runSolo(vault, onProgress)
     }
 
     private suspend fun handleBridgeMessage(

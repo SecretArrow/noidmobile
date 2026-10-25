@@ -37,13 +37,22 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: rust/noidmobile-pow
+          workspaces: |
+            rust/noidmobile-pow
+            rust/noidmobile-stratum
 
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --locked
 
-      - name: Build Rust crate for Android ABIs
+      - name: Build Rust PoW crate for Android ABIs
         working-directory: rust/noidmobile-pow
+        run: |
+          cargo ndk -t arm64-v8a -t x86_64 -t armeabi-v7a \
+              -o ../../android/app/src/main/jniLibs build --release
+          ls -la ../../android/app/src/main/jniLibs/*/
+
+      - name: Build Rust Stratum V2 crate for Android ABIs
+        working-directory: rust/noidmobile-stratum
         run: |
           cargo ndk -t arm64-v8a -t x86_64 -t armeabi-v7a \
               -o ../../android/app/src/main/jniLibs build --release
