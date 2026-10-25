@@ -55,8 +55,30 @@ object NativePow {
     /** True if the OpenCL backend compiled in and initialized successfully. */
     external fun openclAvailableNative(): Boolean
 
+    /**
+     * Derive the bech32m Parano1d address (`o1...`) from a 256-bit spend
+     * secret (64 lowercase hex chars). Returns `null` on error.
+     *
+     * This calls the same `noid_poseidon2b::primitives::derive_address`
+     * function the `parano1d` node uses — so the address shown locally
+     * matches what the node would report.
+     */
+    external fun deriveAddressNative(secretHex: String): String?
+
     /** Logs the active Poseidon2b backend (OpenCL vs CPU). Called from NoidApp. */
     external fun logBackendNative()
+
+    /**
+     * Convenience: derive address, return "" on error (never throws).
+     */
+    fun deriveAddress(secretHex: String): String {
+        return try {
+            deriveAddressNative(secretHex) ?: ""
+        } catch (t: Throwable) {
+            Log.w(TAG, "deriveAddress failed: ${t.message}")
+            ""
+        }
+    }
 
     /**
      * Convenience: compute the hex digest for a single nonce.

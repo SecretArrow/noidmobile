@@ -33,6 +33,11 @@ extern "C" {
                                   uint64_t nonce_start, uint32_t nonce_count,
                                   uint8_t* out);
     int32_t noidmobile_le256_lt(const uint8_t* a, const uint8_t* b);
+    // Derive bech32m address from 256-bit spend secret.
+    // Returns string length (excluding null) on success, -1 on error.
+    // out_buf must be at least 80 bytes.
+    int64_t noidmobile_derive_address(const char* secret_hex, size_t secret_len,
+                                       char* out_buf, size_t out_buf_len);
 
     // Provided by opencl_miner.cpp — always safe to call (returns 0 if
     // OpenCL is compiled out, never throws).
@@ -221,6 +226,33 @@ Java_org_secretarrow_noidmobile_pow_NativePow_openclAvailableNative(
     // OpenCL is compiled out by default — always return false.
     // This is intentional: the CPU path is always correct and never crashes.
     return noid_opencl_available() ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_org_secretarrow_noidmobile_pow_NativePow_deriveAddressNative(
+    JNIEnv* env, jclass, jstring jSecretHex) {
+
+    if (!env) return nullptr;
+    try {
+        auto secret_hex = jstr_to_std(env, jSecretHex);
+        // Buffer for the derived address: bech32m addresses are ~60 chars
+        // + null terminator + safety margin.
+        char out_buf[128] = {0};
+        int64_t rc = noidmobile_derive_address(
+            secret_hex.c_str(), secret_hex.size(),
+            out_buf, sizeof(out_buf));
+        if (rc < 0) {
+            LOGW("derive_address failed (rc=%lld)", (long long)rc);
+            return nullptr;
+        }
+        return env->NewStringUTF(out_buf);
+    } catch (const std::exception& e) {
+        LOGE("deriveAddressNative exception: %s", e.what());
+        return nullptr;
+    } catch (...) {
+        LOGE("deriveAddressNative unknown exception");
+        return nullptr;
+    }
 }
 
 // Called from NoidApp.onCreate to log the backend selection.

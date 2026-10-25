@@ -14,8 +14,8 @@
 #![cfg(not(target_arch = "wasm32"))]
 
 use crate::{
-    batch_hash, check_target, decode_pow_fields_hex, hash_pow, le256_lt, validate_bech32m_o1,
-    POW_DIGEST_LEN,
+    batch_hash, check_target, decode_pow_fields_hex, derive_address_hex, hash_pow, le256_lt,
+    validate_bech32m_o1, POW_DIGEST_LEN,
 };
 use std::ffi::CStr;
 use std::os::raw::c_char;
@@ -170,6 +170,46 @@ pub extern "C" fn noidmobile_le256_lt(a: *const u8, b: *const u8) -> i32 {
         1
     } else {
         0
+    }
+}
+
+/// `noidmobile_derive_address(secret_hex, out_buf, out_buf_len) -> i32`
+///
+/// Derives the bech32m Parano1d address (`o1...`) from a 256-bit spend
+/// secret. Writes a null-terminated UTF-8 string into `out_buf`. Returns
+/// the number of bytes written (excluding the null terminator) on success,
+/// or `-1` on error.
+///
+/// The caller MUST allocate `out_buf` with at least 80 bytes (addresses
+/// are ~60 chars + null + safety margin).
+#[no_mangle]
+pub extern "C" fn noidmobile_derive_address(
+    secret_hex_ptr: *const c_char,
+    secret_hex_len: usize,
+    out_buf: *mut c_char,
+    out_buf_len: usize,
+) -> i64 {
+    if out_buf.is_null() || out_buf_len < 80 {
+        return -1;
+    }
+    let secret_hex = unsafe { match read_str(secret_hex_ptr, secret_hex_len) {
+        Some(s) => s,
+        None => return -1,
+    }};
+    match derive_address_hex(secret_hex) {
+        Ok(address) => {
+            let bytes = address.as_bytes();
+            if bytes.len() + 1 > out_buf_len {
+                return -1;
+            }
+            unsafe {
+                std::ptr::copy_nonoverlapping(bytes.as_ptr(), out_buf as *mut u8, bytes.len());
+                // Null-terminate
+                *out_buf.add(bytes.len()) = 0;
+            }
+            bytes.len() as i64
+        }
+        Err(_) => -1,
     }
 }
 

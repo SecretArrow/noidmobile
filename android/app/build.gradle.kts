@@ -15,8 +15,8 @@ android {
         // Compose's minSdk is 21, so 24 is well within bounds.
         minSdk = 24
         targetSdk = 34
-        versionCode = 5
-        versionName = "0.3.2"
+        versionCode = 6
+        versionName = "0.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true

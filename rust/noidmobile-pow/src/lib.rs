@@ -155,19 +155,15 @@ pub fn validate_bech32m_o1(address: &str) -> bool {
 // In bech32 0.11, `Bech32m` is a unit struct implementing the `Variant` trait.
 use bech32::Bech32m;
 
-/// Best-effort address derivation.
+/// Derive a bech32m Parano1d address (`o1...`) from a 256-bit spend secret.
 ///
-/// If `noid_poseidon2b::primitives::derive_address` is accessible and the
-/// upstream API matches, this returns a bech32m `o1...` address for the
-/// supplied 256-bit spend secret hex. Otherwise it returns an error
-/// string — the web/android wallet then falls back to the node RPC
-/// `paranoid_walletGetAddress`.
+/// This calls the upstream `noid_poseidon2b::primitives::derive_address`
+/// directly — the same function the `parano1d` node uses when you import
+/// a wallet. The web and Android wallets call this so the user can see
+/// their address WITHOUT needing a local node running.
 ///
-/// Enable the `derive` cargo feature to opt in to the upstream primitive
-/// call. Disabled by default because the upstream API surface is not
-/// version-pinned and may drift; the wallet code paths in noidmobile do
-/// not depend on this function.
-#[cfg(feature = "derive")]
+/// Input: 64 lowercase hex chars (256-bit spend secret).
+/// Output: bech32m string like `o1q...` (~60 chars).
 pub fn derive_address_hex(secret_hex: &str) -> Result<String, String> {
     let bytes = hex::decode(secret_hex).map_err(|e| format!("secret hex decode: {e}"))?;
     if bytes.len() != 32 {
@@ -177,15 +173,9 @@ pub fn derive_address_hex(secret_hex: &str) -> Result<String, String> {
     use noid_poseidon2b::primitives::{derive_address, SpendSecret};
     let mut arr = [0u8; 32];
     arr.copy_from_slice(&bytes);
-    let secret = SpendSecret::from(arr);
+    let secret = SpendSecret::from_bytes(arr);
     let address = derive_address(&secret);
-    Ok(address.to_string())
-}
-
-/// Best-effort address derivation (stub when the `derive` feature is off).
-#[cfg(not(feature = "derive"))]
-pub fn derive_address_hex(_secret_hex: &str) -> Result<String, String> {
-    Err("derive_address not available in this build".to_string())
+    Ok(address.to_bech32())
 }
 
 /// Batch-hash `nonce_count` consecutive nonces starting at `nonce_start`.
