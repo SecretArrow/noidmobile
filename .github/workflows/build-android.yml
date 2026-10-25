@@ -53,10 +53,14 @@ jobs:
 
       - name: Decode signing keystore (if provided)
         id: keystore
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && secrets.ANDROID_KEYSTORE_BASE64 != ''
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "No keystore secret set — building unsigned release."
+            exit 0
+          fi
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > $RUNNER_TEMP/noidmobile.keystore
           echo "keystore_file=$RUNNER_TEMP/noidmobile.keystore" >> $GITHUB_OUTPUT
 
