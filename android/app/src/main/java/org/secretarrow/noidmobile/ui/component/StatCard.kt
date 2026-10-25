@@ -3,50 +3,66 @@
 package org.secretarrow.noidmobile.ui.component
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import org.secretarrow.noidmobile.ui.NoidGreen
 
 /**
- * Stat card — a label + value pair displayed inside a [ScanlineBox].
+ * MD3 stat card — a label + value pair with an optional leading icon.
+ * Uses `surfaceContainerHigh` so the card visibly sits above the page
+ * background. 16dp rounded corners per MD3 spec.
  */
 @Composable
 fun StatCard(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
-    accent: Color = NoidGreen,
+    accent: Color = MaterialTheme.colorScheme.primary,
+    leadingIcon: ImageVector? = null,
 ) {
-    ScanlineBox(modifier = modifier.fillMaxWidth(), borderColor = accent) {
-        Column {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            if (leadingIcon != null) {
+                Icon(
+                    leadingIcon,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.height(8.dp))
+            }
             Text(
                 text = label,
+                style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontFamily = MaterialTheme.typography.labelMedium.fontFamily,
-                fontWeight = FontWeight.Medium,
-                fontSize = MaterialTheme.typography.labelMedium.fontSize,
             )
-            Row(
-                modifier = Modifier.padding(top = 4.dp),
-                verticalAlignment = Alignment.Bottom,
-            ) {
-                Text(
-                    text = value,
-                    color = accent,
-                    fontFamily = MaterialTheme.typography.titleLarge.fontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = MaterialTheme.typography.titleLarge.fontSize,
-                )
-            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineSmall,
+                color = accent,
+                fontWeight = FontWeight.Bold,
+            )
         }
     }
 }

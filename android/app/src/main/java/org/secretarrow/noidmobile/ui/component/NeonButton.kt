@@ -2,36 +2,29 @@
 // Copyright (C) 2026 SecretArrow.
 package org.secretarrow.noidmobile.ui.component
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import org.secretarrow.noidmobile.ui.NoidBlack
-import org.secretarrow.noidmobile.ui.NoidGreen
-import org.secretarrow.noidmobile.ui.NoidMagenta
-import org.secretarrow.noidmobile.ui.NoidAmber
 
 enum class NeonButtonStyle { Primary, Accent, Warn }
 
 /**
- * Cyberpunk neon button: solid background variant of the design system.
- * Used for START MINING / STOP MINING / SEND / IMPORT etc.
+ * MD3 buttons wrapper. Kept under the historical `NeonButton` name so
+ * callers don't change; internally it maps to MD3 [Button] (filled),
+ * [OutlinedButton], and a tinted [Button] (error) for the warn style.
+ *
+ * - Primary → MD3 filled Button (default primary container/onPrimary).
+ * - Accent  → MD3 OutlinedButton.
+ * - Warn    → MD3 filled Button using `error` / `onError`.
+ *
+ * MD3 default shapes give us the standard 20dp rounded corners.
+ * Height is pinned to 48dp to honour the MD3 touch-target minimum.
  */
 @Composable
 fun NeonButton(
@@ -41,34 +34,33 @@ fun NeonButton(
     enabled: Boolean = true,
     style: NeonButtonStyle = NeonButtonStyle.Primary,
 ) {
-    val color = when (style) {
-        NeonButtonStyle.Primary -> NoidGreen
-        NeonButtonStyle.Accent  -> NoidMagenta
-        NeonButtonStyle.Warn    -> NoidAmber
-    }
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val bg = if (enabled) color.copy(alpha = if (pressed) 0.25f else 0.12f) else Color(0xFF222222)
+    when (style) {
+        NeonButtonStyle.Primary -> Button(
+            onClick = onClick,
+            enabled = enabled,
+            modifier = modifier.height(48.dp),
+        ) {
+            Text(text, style = MaterialTheme.typography.labelLarge)
+        }
 
-    Box(
-        modifier = modifier
-            .background(bg)
-            .border(1.dp, if (enabled) color else Color(0xFF444444))
-            .clickable(
-                interactionSource = interaction,
-                indication = null,
-                enabled = enabled,
-            ) { onClick() }
-            .padding(PaddingValues(horizontal = 18.dp, vertical = 12.dp)),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = text,
-            color = if (enabled) color else Color(0xFF666666),
-            fontFamily = MaterialTheme.typography.labelLarge.fontFamily,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = MaterialTheme.typography.labelLarge.fontSize,
-            modifier = Modifier.alpha(if (enabled) 1f else 0.5f),
-        )
+        NeonButtonStyle.Accent -> OutlinedButton(
+            onClick = onClick,
+            enabled = enabled,
+            modifier = modifier.height(48.dp),
+        ) {
+            Text(text, style = MaterialTheme.typography.labelLarge)
+        }
+
+        NeonButtonStyle.Warn -> Button(
+            onClick = onClick,
+            enabled = enabled,
+            modifier = modifier.height(48.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor   = MaterialTheme.colorScheme.onError,
+            ),
+        ) {
+            Text(text, style = MaterialTheme.typography.labelLarge)
+        }
     }
 }

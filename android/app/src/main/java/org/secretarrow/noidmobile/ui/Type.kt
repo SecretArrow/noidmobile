@@ -8,21 +8,32 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-// JetBrains Mono is the canonical cyberpunk-terminal font. We fall back
-// to the platform `Monospace` family if it's not bundled in res/font.
-private val NoidMono = FontFamily.Monospace
+// ─────────────────────────────────────────────────────────────────────
+// MD3 type scale — system sans-serif for body, monospace only for
+// hashes / addresses / hex secrets / transaction IDs / log lines.
+//
+// Using the platform default (Roboto on Android) makes the app feel
+// native and modern — the old all-monospace cyberpunk terminal feel
+// is reserved for content where monospace is semantically meaningful.
+// ─────────────────────────────────────────────────────────────────────
+
+/** Monospace family — use only for hashes, addresses, hex, txids, log lines. */
+val NoidMono = FontFamily.Monospace
 
 val NoidTypography = Typography(
-    displayLarge  = TextStyle(fontFamily = NoidMono, fontWeight = FontWeight.Bold, fontSize = 32.sp, color = NoidGreen),
-    displayMedium = TextStyle(fontFamily = NoidMono, fontWeight = FontWeight.Bold, fontSize = 24.sp, color = NoidGreen),
-    headlineLarge = TextStyle(fontFamily = NoidMono, fontWeight = FontWeight.Bold, fontSize = 22.sp, color = NoidGreen),
-    headlineMedium= TextStyle(fontFamily = NoidMono, fontWeight = FontWeight.SemiBold, fontSize = 18.sp, color = NoidGreen),
-    titleLarge    = TextStyle(fontFamily = NoidMono, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = NoidGreen),
-    titleMedium   = TextStyle(fontFamily = NoidMono, fontWeight = FontWeight.Medium, fontSize = 14.sp, color = NoidGreen),
-    bodyLarge     = TextStyle(fontFamily = NoidMono, fontWeight = FontWeight.Normal, fontSize = 14.sp, color = NoidWhite),
-    bodyMedium    = TextStyle(fontFamily = NoidMono, fontWeight = FontWeight.Normal, fontSize = 13.sp, color = NoidWhite),
-    bodySmall     = TextStyle(fontFamily = NoidMono, fontWeight = FontWeight.Normal, fontSize = 12.sp, color = NoidGray),
-    labelLarge    = TextStyle(fontFamily = NoidMono, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = NoidGreen),
-    labelMedium   = TextStyle(fontFamily = NoidMono, fontWeight = FontWeight.Medium, fontSize = 12.sp, color = NoidGray),
-    labelSmall    = TextStyle(fontFamily = NoidMono, fontWeight = FontWeight.Normal, fontSize = 11.sp, color = NoidGray),
+    displayLarge   = TextStyle(fontWeight = FontWeight.Bold,     fontSize = 57.sp, lineHeight = 64.sp, letterSpacing = (-0.25).sp),
+    displayMedium  = TextStyle(fontWeight = FontWeight.Bold,     fontSize = 45.sp, lineHeight = 52.sp),
+    displaySmall   = TextStyle(fontWeight = FontWeight.Bold,     fontSize = 36.sp, lineHeight = 44.sp),
+    headlineLarge  = TextStyle(fontWeight = FontWeight.SemiBold,  fontSize = 32.sp, lineHeight = 40.sp),
+    headlineMedium = TextStyle(fontWeight = FontWeight.SemiBold,  fontSize = 28.sp, lineHeight = 36.sp),
+    headlineSmall  = TextStyle(fontWeight = FontWeight.SemiBold,  fontSize = 24.sp, lineHeight = 32.sp),
+    titleLarge     = TextStyle(fontWeight = FontWeight.SemiBold,  fontSize = 22.sp, lineHeight = 28.sp),
+    titleMedium    = TextStyle(fontWeight = FontWeight.SemiBold,  fontSize = 16.sp, lineHeight = 24.sp, letterSpacing = 0.15.sp),
+    titleSmall     = TextStyle(fontWeight = FontWeight.Medium,    fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.1.sp),
+    bodyLarge      = TextStyle(fontWeight = FontWeight.Normal,    fontSize = 16.sp, lineHeight = 24.sp, letterSpacing = 0.5.sp),
+    bodyMedium     = TextStyle(fontWeight = FontWeight.Normal,    fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.25.sp),
+    bodySmall      = TextStyle(fontWeight = FontWeight.Normal,    fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.4.sp),
+    labelLarge     = TextStyle(fontWeight = FontWeight.Medium,    fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.1.sp),
+    labelMedium    = TextStyle(fontWeight = FontWeight.Medium,    fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.5.sp),
+    labelSmall     = TextStyle(fontWeight = FontWeight.Medium,    fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 0.5.sp),
 )

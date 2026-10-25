@@ -3,57 +3,69 @@
 package org.secretarrow.noidmobile.ui.screen
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.filled.Hub
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.secretarrow.noidmobile.data.RpcClient
 import org.secretarrow.noidmobile.data.Vault
-import org.secretarrow.noidmobile.ui.NoidAmber
-import org.secretarrow.noidmobile.ui.NoidGreen
-import org.secretarrow.noidmobile.ui.NoidMagenta
-import org.secretarrow.noidmobile.ui.component.NeonButton
-import org.secretarrow.noidmobile.ui.component.NeonButtonStyle
-import org.secretarrow.noidmobile.ui.component.ScanlineBox
+import org.secretarrow.noidmobile.ui.NoidMono
 
-/**
- * Settings screen with TWO mining connection modes:
- *
- * 1. SOLO (JSON-RPC to remote node) — connect directly to a parano1d node
- *    running on your VPS. The node holds the wallet + builds proven
- *    templates; this app only does Poseidon2b PoW search. WORKING TODAY.
- *
- * 2. POOL (Stratum V2 native) — connect directly to a peakpool instance
- *    over Noise-encrypted TCP. EXPERIMENTAL — requires you to run
- *    peakpool on your own server (it's proprietary, not a public pool).
- *
- * Both modes connect DIRECTLY from the app — no bridge, no middleware.
- */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen() {
     val ctx = LocalContext.current
@@ -65,66 +77,84 @@ fun SettingsScreen() {
     var poolHost by remember { mutableStateOf(vault.poolHost) }
     var poolPort by remember { mutableStateOf(vault.poolPort.toString()) }
     var poolPubkey by remember { mutableStateOf(vault.poolPubkey) }
-    var threads by remember { mutableStateOf(vault.threads.toString()) }
+    var threads by remember { mutableStateOf(vault.threads.coerceIn(0, 16)) }
     var testResult by remember { mutableStateOf("") }
     var testing by remember { mutableStateOf(false) }
+    var guideExpanded by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text(
-            "> CONFIG",
-            color = NoidGreen,
-            fontFamily = MaterialTheme.typography.headlineMedium.fontFamily,
-            fontWeight = FontWeight.Bold,
-            fontSize = 22.sp,
-        )
-
-        // ─── MODE 1: SOLO — Remote node via JSON-RPC ────────────────
-        ScanlineBox(borderColor = NoidGreen) {
-            Column(modifier = Modifier.padding(8.dp)) {
-                Text("MODE 1: SOLO (JSON-RPC → remote node)", color = NoidGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Text(
-                    "Connect directly to a parano1d node running on your VPS. " +
-                        "The node holds the wallet and builds proven templates; " +
-                        "this app only does PoW search. WORKING TODAY.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 10.sp,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-
-                Text("RPC URL", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp,
-                    modifier = Modifier.padding(top = 8.dp))
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Settings", fontWeight = FontWeight.Bold) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                ),
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background,
+        bottomBar = {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                tonalElevation = 3.dp,
+            ) {
+                Button(
+                    onClick = {
+                        vault.rpcUrl = rpcUrl.ifBlank { "http://127.0.0.1:9601" }
+                        vault.miningKey = miningKey
+                        vault.poolHost = poolHost
+                        vault.poolPort = poolPort.toIntOrNull() ?: 3333
+                        vault.poolPubkey = poolPubkey
+                        vault.threads = threads
+                        Toast.makeText(ctx, "Settings saved", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .height(48.dp),
+                ) {
+                    Icon(Icons.Filled.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("SAVE SETTINGS", fontWeight = FontWeight.Bold)
+                }
+            }
+        },
+    ) { inner ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(inner)
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            // ── Section 1: Solo Mining ────────────────────────────────
+            SectionCard(
+                title = "Solo Mining",
+                subtitle = "JSON-RPC → remote parano1d node",
+                icon = Icons.Filled.Dns,
+            ) {
                 OutlinedTextField(
                     value = rpcUrl,
                     onValueChange = { rpcUrl = it },
+                    label = { Text("RPC URL") },
                     placeholder = { Text("https://your-vps.com:9601") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-                    colors = noidFieldColors(),
+                    modifier = Modifier.fillMaxWidth(),
                 )
-
-                Text("MINING KEY (Bearer token from node)", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp,
-                    modifier = Modifier.padding(top = 8.dp))
                 OutlinedTextField(
                     value = miningKey,
                     onValueChange = { miningKey = it },
+                    label = { Text("Mining key (Bearer token from node)") },
                     placeholder = { Text("(leave blank for localhost solo)") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-                    colors = noidFieldColors(),
-                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = PasswordVisualTransformation(),
                 )
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
-                    NeonButton(
-                        "TEST",
-                        {
-                            if (testing) return@NeonButton
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            if (testing) return@OutlinedButton
                             testing = true
                             testResult = "Testing..."
                             scope.launch {
@@ -142,155 +172,253 @@ fun SettingsScreen() {
                                 Toast.makeText(ctx, if (result.startsWith("✓")) "Connected" else "Failed", Toast.LENGTH_SHORT).show()
                             }
                         },
-                        style = NeonButtonStyle.Primary,
                         modifier = Modifier.weight(1f),
-                    )
-                    NeonButton(
-                        "USE LOCALHOST",
-                        {
+                        enabled = !testing,
+                    ) {
+                        Icon(Icons.Filled.Dns, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("TEST")
+                    }
+                    OutlinedButton(
+                        onClick = {
                             rpcUrl = "http://127.0.0.1:9601"
                             miningKey = ""
                         },
-                        style = NeonButtonStyle.Accent,
                         modifier = Modifier.weight(1f),
-                    )
+                    ) { Text("USE LOCALHOST") }
                 }
                 if (testResult.isNotBlank()) {
-                    Text(
-                        testResult,
-                        color = if (testResult.startsWith("✓")) NoidGreen else NoidAmber,
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
+                    val ok = testResult.startsWith("✓")
+                    Surface(
+                        color = if (ok) MaterialTheme.colorScheme.primaryContainer
+                                else MaterialTheme.colorScheme.errorContainer,
+                        shape = RoundedCornerShape(8.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                if (ok) Icons.Filled.Check else Icons.Filled.Error,
+                                contentDescription = null,
+                                tint = if (ok) MaterialTheme.colorScheme.onPrimaryContainer
+                                       else MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                testResult,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (ok) MaterialTheme.colorScheme.onPrimaryContainer
+                                       else MaterialTheme.colorScheme.onErrorContainer,
+                                fontFamily = NoidMono,
+                            )
+                        }
+                    }
                 }
-            }
-        }
-
-        // ─── MODE 2: POOL — Stratum V2 native ───────────────────────
-        ScanlineBox(borderColor = NoidMagenta) {
-            Column(modifier = Modifier.padding(8.dp)) {
-                Text("MODE 2: POOL (Stratum V2 native → peakpool)", color = NoidMagenta, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 Text(
-                    "Connect directly to a peakpool instance over Noise-encrypted TCP. " +
-                        "EXPERIMENTAL — requires you to run peakpool on your own server " +
-                        "(proprietary, Docker image only). No bridge needed.",
+                    "Connect directly to a parano1d node running on your VPS. " +
+                        "The node holds the wallet and builds proven templates; " +
+                        "this app only does PoW search. WORKING TODAY.",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 10.sp,
-                    modifier = Modifier.padding(top = 4.dp),
                 )
+            }
 
-                Text("POOL HOST", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp,
-                    modifier = Modifier.padding(top = 8.dp))
+            // ── Section 2: Pool Mining ────────────────────────────────
+            SectionCard(
+                title = "Pool Mining",
+                subtitle = "Stratum V2 → peakpool (experimental)",
+                icon = Icons.Filled.Hub,
+            ) {
                 OutlinedTextField(
                     value = poolHost,
                     onValueChange = { poolHost = it },
+                    label = { Text("Pool host") },
                     placeholder = { Text("pool.your-vps.com") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-                    colors = noidFieldColors(),
+                    modifier = Modifier.fillMaxWidth(),
                 )
-
-                Text("POOL PORT", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp,
-                    modifier = Modifier.padding(top = 8.dp))
                 OutlinedTextField(
                     value = poolPort,
                     onValueChange = { v -> poolPort = v.filter { it.isDigit() }.take(5) },
+                    label = { Text("Pool port") },
                     placeholder = { Text("3333") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-                    colors = noidFieldColors(),
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 )
-
-                Text("POOL STATIC PUBKEY (Noise auth)", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp,
-                    modifier = Modifier.padding(top = 8.dp))
                 OutlinedTextField(
                     value = poolPubkey,
                     onValueChange = { poolPubkey = it.filter { c -> c in "0123456789abcdefABCDEF" } },
+                    label = { Text("Pool static pubkey (Noise auth)") },
                     placeholder = { Text("64 hex chars (32 bytes)") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-                    colors = noidFieldColors(),
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
-                    "Get this from peakpool's logs when it starts. " +
-                        "Authenticates the pool — prevents MITM.",
+                    "Connect directly to a peakpool instance over Noise-encrypted TCP. " +
+                        "EXPERIMENTAL — requires you to run peakpool on your own server " +
+                        "(proprietary, Docker image only). Get the pool pubkey from peakpool's logs when it starts " +
+                        "— authenticates the pool and prevents MITM.",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 10.sp,
                 )
             }
-        }
 
-        // ─── THREADS ─────────────────────────────────────────────────
-        ScanlineBox(borderColor = NoidGreen) {
-            Column(modifier = Modifier.padding(8.dp)) {
-                Text("MINING THREADS", color = NoidGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                OutlinedTextField(
-                    value = threads,
-                    onValueChange = { v -> threads = v.filter { it.isDigit() }.take(2) },
-                    placeholder = { Text("0 = all cores") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                    colors = noidFieldColors(),
+            // ── Section 3: Performance ────────────────────────────────
+            SectionCard(
+                title = "Performance",
+                subtitle = null,
+                icon = Icons.Filled.Memory,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Threads",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        if (threads == 0) "All cores" else threads.toString(),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = NoidMono,
+                    )
+                }
+                Slider(
+                    value = threads.toFloat(),
+                    onValueChange = { threads = it.toInt() },
+                    valueRange = 0f..16f,
+                    steps = 15,
                 )
                 Text(
                     "0 = use all CPU cores. Set 2-4 for battery saving on phones.",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 10.sp,
                 )
             }
-        }
 
-        // ─── SETUP GUIDE ─────────────────────────────────────────────
-        ScanlineBox(borderColor = NoidAmber) {
-            Column(modifier = Modifier.padding(8.dp)) {
-                Text("SETUP GUIDE", color = NoidAmber, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Text(
-                    "Parano1d mining model is DIFFERENT from BTC. The worker " +
-                        "needs a node that provides proven templates. There is no " +
-                        "public pool — you run your own.\n\n" +
-                        "QUICK SETUP (VPS):\n" +
-                        "1. SSH to your VPS (Ubuntu 22+)\n" +
-                        "2. Download parano1d from parano1d.org/downloads\n" +
-                        "3. Run: parano1d --mode miner --miner-address o1...\n" +
-                        "4. Get mining key: cat ~/.parano1d/mining.key\n" +
-                        "5. In this app: set RPC URL = http://YOUR-VPS:9601\n" +
-                        "6. Set Mining Key = the key from step 4\n" +
-                        "7. Tap START MINING — app connects directly to VPS\n\n" +
-                        "For peakpool (Stratum V2):\n" +
-                        "1. cd deployments/parano1d && cp .env.example .env\n" +
-                        "2. Set your wallet + node RPC token in .env\n" +
-                        "3. docker compose up -d\n" +
-                        "4. Get pool pubkey from: docker compose logs pool\n" +
-                        "5. In this app: set Pool Host/Port/Pubkey above\n" +
-                        "6. Tap START MINING in POOL mode",
-                    color = NoidGreen,
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace,
-                    overflow = TextOverflow.Visible,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
+            // ── Section 4: Setup Guide (expandable) ───────────────────
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                ),
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { guideExpanded = !guideExpanded }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Filled.HelpOutline,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(24.dp),
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            "Setup Guide",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Icon(
+                            if (guideExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                            contentDescription = if (guideExpanded) "Collapse" else "Expand",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    AnimatedVisibility(
+                        visible = guideExpanded,
+                        enter = expandVertically(),
+                        exit = shrinkVertically(),
+                    ) {
+                        Text(
+                            SETUP_GUIDE_TEXT,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontFamily = NoidMono,
+                            modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp),
+                        )
+                    }
+                }
             }
         }
-
-        NeonButton("SAVE", {
-            vault.rpcUrl = rpcUrl.ifBlank { "http://127.0.0.1:9601" }
-            vault.miningKey = miningKey
-            vault.poolHost = poolHost
-            vault.poolPort = poolPort.toIntOrNull() ?: 3333
-            vault.poolPubkey = poolPubkey
-            vault.threads = threads.toIntOrNull() ?: 0
-            Toast.makeText(ctx, "Settings saved", Toast.LENGTH_SHORT).show()
-        }, style = NeonButtonStyle.Primary, modifier = Modifier.fillMaxWidth())
     }
 }
 
 @Composable
-private fun noidFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = NoidGreen,
-    unfocusedTextColor = NoidGreen,
-    focusedBorderColor = NoidGreen,
-    unfocusedBorderColor = Color(0xFF444444),
-    focusedLabelColor = NoidGreen,
-    cursorColor = NoidGreen,
-)
+private fun SectionCard(
+    title: String,
+    subtitle: String?,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    content: @Composable Column.() -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp),
+                )
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    if (subtitle != null) {
+                        Text(
+                            subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            content()
+        }
+    }
+}
+
+private const val SETUP_GUIDE_TEXT = """Parano1d mining model is DIFFERENT from BTC. The worker
+needs a node that provides proven templates. There is no
+public pool — you run your own.
+
+QUICK SETUP (VPS):
+1. SSH to your VPS (Ubuntu 22+)
+2. Download parano1d from parano1d.org/downloads
+3. Run: parano1d --mode miner --miner-address o1...
+4. Get mining key: cat ~/.parano1d/mining.key
+5. In this app: set RPC URL = http://YOUR-VPS:9601
+6. Set Mining Key = the key from step 4
+7. Tap START MINING — app connects directly to VPS
+
+For peakpool (Stratum V2):
+1. cd deployments/parano1d && cp .env.example .env
+2. Set your wallet + node RPC token in .env
+3. docker compose up -d
+4. Get pool pubkey from: docker compose logs pool
+5. In this app: set Pool Host/Port/Pubkey above
+6. Tap START MINING in POOL mode"""
