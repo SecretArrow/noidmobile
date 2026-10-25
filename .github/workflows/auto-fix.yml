@@ -57,7 +57,7 @@ jobs:
 
       - name: Commit fixes
         if: steps.check.outputs.permission == 'admin' || steps.check.outputs.permission == 'write'
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: 'fix: auto-fix lint errors [skip ci]'
           commit_user_name: 'noidmobile-ci'
